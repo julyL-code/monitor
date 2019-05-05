@@ -125,9 +125,11 @@ function tryifyArgs(func) {
 var monitor = {};
 monitor.tryJS = tryJS;
 
-setting({ handleTryCatchError: handleTryCatchError });
+setting({
+  handleTryCatchError: handleTryCatchError
+});
 
-monitor.init = function(opts) {
+monitor.init = function (opts) {
   __config(opts);
   __init();
 };
@@ -137,7 +139,7 @@ window.ignoreError = false;
 // 错误日志列表
 var errorList = [];
 // 错误处理回调
-var report = function() {};
+var report = function () {};
 
 var config = {
   concat: true,
@@ -145,7 +147,17 @@ var config = {
   maxError: 16, // 异常报错数量限制
   sampling: 1 // 采样率
 };
-
+let ERROR_INTR = [
+  '',
+  'js执行错误',
+  'js加载失败',
+  'css加载失败',
+  '图片加载失败',
+  '音乐加载失败',
+  '视频加载失败',
+  'console.error',
+  'try catch'
+];
 // 定义的错误类型码
 var ERROR_RUNTIME = 1;
 var ERROR_SCRIPT = 2;
@@ -167,14 +179,14 @@ var LOAD_ERROR_TYPE = {
 function __config(opts) {
   merge(opts, config);
 
-  report = debounce(config.report, config.delay, function() {
+  report = debounce(config.report, config.delay, function () {
     errorList = [];
   });
 }
 
 function __init() {
   // 监听 JavaScript 报错异常(JavaScript runtime error)
-  window.onerror = function() {
+  window.onerror = function () {
     if (window.ignoreError) {
       window.ignoreError = false;
       return
@@ -184,7 +196,7 @@ function __init() {
   };
 
   // 监听资源加载错误(JavaScript Scource failed to load)
-  window.addEventListener('error', function(event) {
+  window.addEventListener('error', function (event) {
     // 过滤 target 为 window 的异常，避免与上面的 onerror 重复
     var errorTarget = event.target;
     if (errorTarget !== window && errorTarget.nodeName && LOAD_ERROR_TYPE[errorTarget.nodeName.toUpperCase()]) {
@@ -194,8 +206,8 @@ function __init() {
 
   // 针对 vue 报错重写 console.error
   // TODO
-  console.error = (function(origin) {
-    return function(info) {
+  console.error = (function (origin) {
+    return function (info) {
       var errorLog = {
         type: ERROR_CONSOLE,
         desc: info
@@ -225,7 +237,13 @@ function handleTryCatchError(error) {
 function formatRuntimerError(message, source, lineno, colno, error) {
   return {
     type: ERROR_RUNTIME,
-    desc: message + ' at ' + source + ':' + lineno + ':' + colno,
+    intr: ERROR_INTR[ERROR_RUNTIME],
+    desc: {
+      message: message,
+      source: source,
+      lineno: lineno,
+      colno: colno
+    },
     stack: error && error.stack ? error.stack : 'no stack' // IE <9, has no error stack
   }
 }
@@ -237,9 +255,14 @@ function formatRuntimerError(message, source, lineno, colno, error) {
  * @return {Object}
  */
 function formatLoadError(errorTarget) {
+  var type = LOAD_ERROR_TYPE[errorTarget.nodeName.toUpperCase()];
   return {
-    type: LOAD_ERROR_TYPE[errorTarget.nodeName.toUpperCase()],
-    desc: errorTarget.baseURI + '@' + (errorTarget.src || errorTarget.href),
+    type: type,
+    intr: ERROR_INTR[type],
+    desc: {
+      baseUrl: errorTarget.baseURI,
+      href: errorTarget.src || errorTarget.href
+    },
     stack: 'no stack'
   }
 }
